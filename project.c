@@ -350,7 +350,7 @@ int tick(int state){
 
        lcd.clear();
      lcd.setCursor(0,0);
-     lcd.print("Diet");
+     lcd.print("Diet?");
      Serial.println(button);
      Serial.println(xPosition);
      Serial.println(yPosition);
@@ -400,8 +400,54 @@ int tick(int state){
       }
 
       else {
+          double weight = 0;
+           
+         if (w==0){
+          weight = weight + 1;
+         }
+         else if (w==1){
+           weight = weight + 2;
+         }
+         else if (w==2){
+           weight = weight + 3;
+         }
+         else if (w==3){
+           weight = weight + 4;
+         }
+
+       if (y == 1){
+           weight = weight + 1;
+       }
+       else if (y==2){
+          weight = weight + 2;
+       }
+       else if (y==3){
+        weight = weight + 3;
+       }
+
+       if (z == 1){
+        weight = weight - 0.5;
+       }
+       else if (z==2){
+        weight = weight -1;
+       }
+
+       if (x==0){
+           weight = weight / 6;
+         }
+         else if (x==1)
+            weight = weight / 3;
+         else if (x==2)
+            weight = weight / 1.5;
+            
          
-         if (totalTime > 300){  
+      double timePass = weight * 1000;
+      Serial.print("timepass: ");
+      Serial.println(timePass);
+       
+            
+         if (totalTime > (500 - timePass)){  
+            
             if (motorTimer > 100 && totalTime > 300){
               analogWrite(3, LOW);
               motorTimer =0;
@@ -472,28 +518,28 @@ int tick(int state){
 
 
 void loop() {
-//long duration, distance;
-  /*digitalWrite(trigPin, LOW);  // Added this line
+ long duration, distance;
+  digitalWrite(trigPin, LOW);  // Added this line
   delayMicroseconds(2); // Added this line
   digitalWrite(trigPin, HIGH);
-//  delayMicroseconds(1000); - Removed this line
+  
   delayMicroseconds(10); // Added this line
   digitalWrite(trigPin, LOW);
   duration = pulseIn(echoPin, HIGH);
   distance = (duration/2) / 29.1;
 
-  Serial.println(distance);
-*/
-  //Serial.print("distance: ");
-    //  Serial.println(distance);
+  //Serial.println(distance);
+
+  Serial.print("distance: ");
+      Serial.println(distance);
     totalTime++; 
     
-    Serial.print("total time: ");
+  //  Serial.print("total time: ");
     
-    if (totalTime > 500)
+    if (totalTime > 6500)
       totalTime = 0;
       
-    Serial.println(totalTime);
+    //Serial.println(totalTime);
     digitalWrite(trigPin, LOW);  // Added this line
   delayMicroseconds(2); // Added this line
   digitalWrite(trigPin, HIGH);
