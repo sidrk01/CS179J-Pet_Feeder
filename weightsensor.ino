@@ -190,8 +190,6 @@ int a = 0;
 int totalTime = 0; 
 int motorTimer = 0;
 
-//enum SM3_States { SM3_INIT, SM2_S0, SM2_S1};
-
 
 const int xAxis_median = 100;
 
@@ -212,6 +210,8 @@ task tasks[tasksNum];
 enum SM1_States{SM1_start, waitPress, wait, state2Press, state2, state3Press, state3, state4Press, state4, startPress};
 
 enum SM2_States{SM2_INIT, Go};
+
+enum SM3_States {SM3_INIT, weight_check};
 
 void setup() {
     pinMode(6, OUTPUT);
@@ -236,11 +236,11 @@ void setup() {
   tasks[i].period = 100;
   tasks[i].elapsedTime = 0;
   tasks[i].TickFct = &tick2;
-  //i++;
-  //tasks[i].state = SM3_INIT;
-  //tasks[i].period = 1000;
-  //tasks[i].elapsedTime = 0;
-  //tasks[i].TickFct = &SM2_Tick;
+  i++;
+  tasks[i].state = SM3_INIT;
+  tasks[i].period = 100;
+  tasks[i].elapsedTime = 0;
+  tasks[i].TickFct = &tick3;
   delay_gcd = 100;
    digitalWrite(3, LOW);
    
@@ -319,6 +319,69 @@ int tick2(int state){
 
 
 //enum SM1_States{SM1_start, waitPress, wait, state2Press, state2, state3Press, state3, state4Press, state4startPress};
+
+int tick3(int state){
+ switch(state){
+    case SM3_INIT: 
+    state = weight_check;
+    break;
+
+    case weight_check:
+    state = weight_check;
+    break;
+
+    default:
+    state = weight_check;
+    break;
+  }
+
+  switch(state){
+    case SM3_INIT:
+    break;
+
+    case weight_check:
+  Serial.print("Reading: ");
+  Serial.print(scale.get_units(), 3); //scale.get_units() returns a float
+  Serial.print(" lbs"); //You can change this to kg but you'll need to refactor the calibration_factor
+  Serial.println();
+
+  if (scale.get_units() < -3){
+    //  for (unsigned i = 0; i < 5; i++){
+    //   analogWrite(buzzerPin, 127);
+    //   delay(500);
+    //   analogWrite(buzzerPin, 0);
+    //   delay(500);
+    //  }
+    for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
+
+    // calculates the duration of each note
+    divider = melody[thisNote + 1];
+    if (divider > 0) {
+      // regular note, just proceed
+      noteDuration = (wholenote) / divider;
+    } else if (divider < 0) {
+      // dotted notes are represented with negative durations!!
+      noteDuration = (wholenote) / abs(divider);
+      noteDuration *= 1.5; // increases the duration in half for dotted notes
+    }
+
+    // we only play the note for 90% of the duration, leaving 10% as a pause
+    tone(buzzer, melody[thisNote], noteDuration * 0.9);
+
+    // Wait for the specief duration before playing the next note.
+    delay(noteDuration);
+
+    // stop the waveform generation before the next note.
+    noTone(buzzer);
+  }
+  }
+    break;
+
+    default:
+    break;
+  }
+  return state;
+}
 
 int tick(int state){
   switch (state){
@@ -610,42 +673,7 @@ int tick(int state){
        
             
       analogWrite(3, 200);
-      
-  Serial.print("Reading: ");
-  Serial.print(scale.get_units(), 3); //scale.get_units() returns a float
-  Serial.print(" lbs"); //You can change this to kg but you'll need to refactor the calibration_factor
-  Serial.println();
-
-  if (scale.get_units() < -3){
-    //  for (unsigned i = 0; i < 5; i++){
-    //   analogWrite(buzzerPin, 127);
-    //   delay(500);
-    //   analogWrite(buzzerPin, 0);
-    //   delay(500);
-    //  }
-    for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
-
-    // calculates the duration of each note
-    divider = melody[thisNote + 1];
-    if (divider > 0) {
-      // regular note, just proceed
-      noteDuration = (wholenote) / divider;
-    } else if (divider < 0) {
-      // dotted notes are represented with negative durations!!
-      noteDuration = (wholenote) / abs(divider);
-      noteDuration *= 1.5; // increases the duration in half for dotted notes
-    }
-
-    // we only play the note for 90% of the duration, leaving 10% as a pause
-    tone(buzzer, melody[thisNote], noteDuration * 0.9);
-
-    // Wait for the specief duration before playing the next note.
-    delay(noteDuration);
-
-    // stop the waveform generation before the next note.
-    noTone(buzzer);
-  }
-  }
+    
             
          lcd.clear();
          lcd.noBlink();
