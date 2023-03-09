@@ -1,3 +1,13 @@
+//#include <Adafruit_ST7789.h>
+//#include <Adafruit_ST7735.h>
+//float temp;
+/* 
+  Nokia Tune
+  Connect a piezo buzzer or speaker to pin 11 or select a new pin.
+  More songs available at https://github.com/robsoncouto/arduino-songs                                            
+                                              
+                                              Robson Couto, 2019
+*/
 #define NOTE_B0  31
 #define NOTE_C1  33
 #define NOTE_CS1 35
@@ -89,7 +99,6 @@
 #define NOTE_DS8 4978
 #define REST      0
 
-
 // change this to make the song slower or faster
 int tempo = 180;
 
@@ -139,11 +148,11 @@ int divider = 0, noteDuration = 0;
 #include "HX711.h"
 
 
-#define calibration_factor -850000.0 //This value is obtained using the SparkFun_HX711_Calibration sketch
+#define calibration_factor -198900.0 //This value is obtained using the SparkFun_HX711_Calibration sketch
 
-//Changed from 3 2 to 1 0 
-#define LOADCELL_DOUT_PIN  1
-#define LOADCELL_SCK_PIN  0
+//Changed from 3 2 to A4 A5 
+#define LOADCELL_DOUT_PIN  A4
+#define LOADCELL_SCK_PIN  A5
 
 HX711 scale;
 int tempPin = 2;
@@ -157,17 +166,21 @@ const int light_pattern_size = 2;
 const char light_pattern[light_pattern_size] = {0x00, 0x0F};
 unsigned char b_temp;
 //unsigned char temp;
+signed int food_weight;
+unsigned int evaluate_food;
 unsigned short xPosition;
 unsigned short yPosition;
 const char sound_pattern_size = 2;
 const double sound_pattern[sound_pattern_size] = {261.63, 293.66}; // C4, D4
 unsigned char counter;
 const int buzzer = 6;
+double weight = 0;
 int button;
 int index = 0;
 int row = 0;
 int buttonFlag = 0;
 int buttonCounter = 0;
+int motor_flag = 0; //stops motor when flag is raised
 const int rs = 4, en = 5, d4 = 8, d5 = 9, d6 = 10, d7 = 11;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 long duration; // variable for the duration of sound wave travel
@@ -179,8 +192,6 @@ int z = 0;
 int a = 0;
 int totalTime = 0; 
 int motorTimer = 0;
-int weightcounter = 0;
-//enum SM3_States { SM3_INIT, SM2_S0, SM2_S1};
 
 
 const int xAxis_median = 100;
@@ -196,15 +207,14 @@ typedef struct task {
 
 
 int delay_gcd;
-const unsigned short tasksNum = 3;
+const unsigned short tasksNum = 2;
 task tasks[tasksNum];
-
 
 enum SM1_States{SM1_start, waitPress, wait, state2Press, state2, state3Press, state3, state4Press, state4, startPress};
 
 enum SM2_States{SM2_INIT, Go};
 
-enum SM3_States{checking,finish};
+enum SM3_States {SM3_INIT, weight_check};
 
 void setup() {
     pinMode(6, OUTPUT);
@@ -230,7 +240,7 @@ void setup() {
   tasks[i].elapsedTime = 0;
   tasks[i].TickFct = &tick2;
   i++;
-  tasks[i].state = checking;
+  tasks[i].state = SM3_INIT;
   tasks[i].period = 100;
   tasks[i].elapsedTime = 0;
   tasks[i].TickFct = &tick3;
@@ -250,9 +260,6 @@ void setup() {
   Serial.println("Readings:");
 }
 
-
-
-
   //int VRM= analogRead(A2);
   int VRM = (5.00 / 1023.00) * analogRead(A2);      //Conversion to voltage
   int VRC = 5 - VRM;
@@ -267,9 +274,6 @@ float  temp = TXCM + 14;
 
 int desired = temp;
 int i =10; 
-
-
-
 
 int tick2(int state){
   switch(state){
@@ -312,69 +316,68 @@ int tick2(int state){
   return state;
 }
 
+//Tick Function Utilized to Report and Check Weight (Buzzer + Weight Scale)
+int tick3(int state){
+ switch(state){
+    case SM3_INIT: 
+    state = weight_check;
+    break;
 
-int tick3(int state ) {
-  static int divider = 0;
-  static int noteDuration = 0;
-  //static int state = 0;
-  
-  switch (state) {
+    case weight_check:
+    state = weight_check;
+    break;
 
-    case checking: // SCALE_READING
-      Serial.print("Reading: ");
-      Serial.print(scale.get_units(), 3); //scale.get_units() returns a float
-      Serial.print(" lbs"); //You can change this to kg but you'll need to refactor the calibration_factor
-      Serial.println();
+    default:
+    state = weight_check;
+    break;
+  }
 
-      if (scale.get_units() < -5) {
-        //state = finish; // SCALE_BUZZING
-        weightcounter++;
-        if (weightcounter == 9){
-          weightcounter = 0;
-          state = finish; 
-        }
-        else{
-          state = checking;
-        }
-      }
-      else{
-        weightcounter =0;
-        state = checking;
-      }
-      break;
+  switch(state){
+    case SM3_INIT:
+    break;
 
-    case finish: // SCALE_BUZZING
-      Serial.println("Finished");
-      for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
+    case weight_check:
+  Serial.print("Reading: ");
+  Serial.print(scale.get_units(), 3); //scale.get_units() returns a float
+  Serial.print(" lbs"); //You can change this to kg but you'll need to refactor the calibration_factor
+  Serial.println();
 
-        // calculates the duration of each note
-        divider = melody[thisNote + 1];
-        if (divider > 0) {
-          // regular note, just proceed
-          noteDuration = (wholenote) / divider;
-        } else if (divider < 0) {
-          // dotted notes are represented with negative durations!!
-          noteDuration = (wholenote) / abs(divider);
-          noteDuration *= 1.5; // increases the duration in half for dotted notes
-        }
+Serial.print("Weight: ");
+Serial.print(weight);
+Serial.println();
 
-        // we only play the note for 90% of the duration, leaving 10% as a pause
-        tone(buzzer, melody[thisNote], noteDuration * 0.9);
+  if (scale.get_units() < (-1*weight)){
+    motor_flag = 1;
+    for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
 
-        // Wait for the specief duration before playing the next note.
-        delay(noteDuration);
+    // calculates the duration of each note
+    divider = melody[thisNote + 1];
+    if (divider > 0) {
+      // regular note, just proceed
+      noteDuration = (wholenote) / divider;
+    } else if (divider < 0) {
+      // dotted notes are represented with negative durations!!
+      noteDuration = (wholenote) / abs(divider);
+      noteDuration *= 1.5; // increases the duration in half for dotted notes
+    }
 
-        // stop the waveform generation before the next note.
-        noTone(buzzer);
-      }
-      state = checking; // SCALE_IDLE
-      break;
+    // we only play the note for 90% of the duration, leaving 10% as a pause
+    tone(buzzer, melody[thisNote], noteDuration * 0.9);
+
+    // Wait for the specief duration before playing the next note.
+    delay(noteDuration);
+
+    // stop the waveform generation before the next note.
+    noTone(buzzer);
+  }
+  }
+    break;
+
+    default:
+    break;
   }
   return state;
 }
-
-
-//enum SM1_States{SM1_start, waitPress, wait, state2Press, state2, state3Press, state3, state4Press, state4startPress};
 
 int tick(int state){
   switch (state){
@@ -418,10 +421,6 @@ int tick(int state){
       }
     break;
 
-
-
-
-    
     case waitPress: 
     Serial.println("waitPress");
     Serial.println(button);
@@ -479,11 +478,6 @@ int tick(int state){
       }
       break;
 
-
-
-
-
-
       case state2Press: 
         if(button ==1){
           state = state2;
@@ -538,8 +532,6 @@ int tick(int state){
         state = state2;
       }
       break;
-
-
 
 
     case state3Press: 
@@ -619,89 +611,18 @@ int tick(int state){
       }
 
       else {
-          double weight = 0;
            
-         if (w==0){
-          weight = weight + 1;
-         }
-         else if (w==1){
-           weight = weight + 2;
-         }
-         else if (w==2){
-           weight = weight + 3;
-         }
-         else if (w==3){
-           weight = weight + 4;
-         }
-
-       if (y == 1){
-           weight = weight + 1;
-       }
-       else if (y==2){
-          weight = weight + 2;
-       }
-       else if (y==3){
-        weight = weight + 3;
-       }
-
-       if (z == 1){
-        weight = weight - 0.5;
-       }
-       else if (z==2){
-        weight = weight -1;
-       }
-
-       if (x==0){
-           weight = weight / 6;
-         }
-         else if (x==1)
-            weight = weight / 3;
-         else if (x==2)
-            weight = weight / 1.5;
+      weight = log(pow(x,.3) + pow(y,.5) + pow(z,.1)) * 5; 
             
          
       double timePass = weight * 1000;
       Serial.print("timepass: ");
       Serial.println(timePass);
        
-            
+      if (!motor_flag)      
       analogWrite(3, 200);
-      
-//  Serial.print("Reading: ");
-//  Serial.print(scale.get_units(), 3); //scale.get_units() returns a float
-//  Serial.print(" lbs"); //You can change this to kg but you'll need to refactor the calibration_factor
-//  Serial.println();
-//
-//  if (scale.get_units() < -3){
-//    //  for (unsigned i = 0; i < 5; i++){
-//    //   analogWrite(buzzerPin, 127);
-//    //   delay(500);
-//    //   analogWrite(buzzerPin, 0);
-//    //   delay(500);
-//    //  }
-//    for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
-//
-//    // calculates the duration of each note
-//    divider = melody[thisNote + 1];
-//    if (divider > 0) {
-//      // regular note, just proceed
-//      noteDuration = (wholenote) / divider;
-//    } else if (divider < 0) {
-//      // dotted notes are represented with negative durations!!
-//      noteDuration = (wholenote) / abs(divider);
-//      noteDuration *= 1.5; // increases the duration in half for dotted notes
-//    }
-//
-//    // we only play the note for 90% of the duration, leaving 10% as a pause
-//    tone(buzzer, melody[thisNote], noteDuration * 0.9);
-//
-//    // Wait for the specief duration before playing the next note.
-//    delay(noteDuration);
-//
-//    // stop the waveform generation before the next note.
-//    noTone(buzzer);
-//  }
-//  }
+      else
+      analogWrite(3,0);
             
          lcd.clear();
          lcd.noBlink();
@@ -759,7 +680,6 @@ int tick(int state){
 
 
 void loop() {
-  //delay(500);
  long duration, distance;
   digitalWrite(trigPin, LOW);  // Added this line
   delayMicroseconds(2); // Added this line
